@@ -1,6 +1,6 @@
 # Smart Study Assistant - Implementation Plan
 
-## 📋 Project Overview
+## Project Overview
 
 **Project Name:** Smart Study Assistant with AI Summarization  
 **Platform:** Mobile Application (Android & iOS)  
@@ -12,7 +12,7 @@
 
 ---
 
-## 🎯 Project Description
+## Project Description
 
 Smart Study Assistant is an AI-powered mobile application designed to help university students efficiently manage and review their study materials. The app leverages artificial intelligence to automatically summarize lengthy notes, generate flashcards, and provide study analytics to enhance learning outcomes.
 
@@ -26,135 +26,24 @@ Smart Study Assistant is an AI-powered mobile application designed to help unive
 
 ---
 
-## 🚀 Recent Updates
+## Recent Updates
 
-### ✨ Flashcard System Optimization
+### Flashcard System Optimization
 - **Stabilized Animations**: Fixed the "double-tap" and "rebuild" bugs in the flip animation for a perfectly smooth experience.
 - **Smart Auto-Flip**: Cards now automatically flip back after 5 seconds of showing the answer.
 - **Clean UI**: Removed the manual difficulty selector to reduce cognitive load and focus on study.
 
-### 🧠 Intelligent AI Summarizer
+### Intelligent AI Summarizer
 - **Automatic Subject Detection**: The AI now analyzes your content and automatically assigns a category (e.g., Technology, Science, History) so you don't have to tag notes manually.
 - **Improved Auto-Titles**: Titles are now intelligently generated from the first meaningful sentence of your summary.
 
-### 📊 Accurate Analytics & UI Fixes
+### Accurate Analytics & UI Fixes
 - **Real-Time Study Tracking**: Fixed the study time bug. Analytics are now computed dynamically based on actual flashcard reviews and note creation.
 - **Search Experience**: Fixed the "disappearing cursor" bug in the library search bar.
 - **Category Sync**: Synchronized all AI-detected categories with the library filters for seamless navigation.
 
 ---
 
-## 👥 Team Members & Responsibilities
-
-### Member 1: UI/UX Designer & Home Page Developer
-**Name:** [Student Name]  
-**Student ID:** [ID]  
-**Email:** [Email]  
-**Contact:** [Phone]  
-**GitHub Username:** [username]
-
-**Responsibilities:**
-- Design application UI/UX (Figma prototypes)
-- Implement Home/Dashboard page
-- Create navigation structure
-- Develop app theme and styling
-- Ensure responsive design across devices
-
-**Deliverables:**
-- Complete UI/UX design mockups
-- Functional Home/Dashboard page
-- Navigation system implementation
-- Design documentation
-
----
-
-### Member 2: AI Integration Specialist
-**Name:** [Student Name]  
-**Student ID:** [ID]  
-**Email:** [Email]  
-**Contact:** [Phone]  
-**GitHub Username:** [username]
-
-**Responsibilities:**
-- Integrate AI summarization API (Gemini/Hugging Face)
-- Implement Summarizer page functionality
-- Handle API requests and responses
-- Error handling and retry logic
-- API optimization and caching
-
-**Deliverables:**
-- Working AI summarization feature
-- API service layer implementation
-- Error handling mechanisms
-- API documentation
-
----
-
-### Member 3: Database & Notes Manager
-**Name:** [Student Name]  
-**Student ID:** [ID]  
-**Email:** [Email]  
-**Contact:** [Phone]  
-**GitHub Username:** [username]
-
-**Responsibilities:**
-- Setup and configure Firebase Firestore
-- Implement Notes Library page
-- CRUD operations (Create, Read, Update, Delete)
-- Data models and schemas
-- User authentication (if required)
-
-**Deliverables:**
-- Firebase configuration
-- Notes Library page
-- Database service layer
-- Data models documentation
-
----
-
-### Member 4: Flashcard & OCR Developer
-**Name:** [Student Name]  
-**Student ID:** [ID]  
-**Email:** [Email]  
-**Contact:** [Phone]  
-**GitHub Username:** [username]
-
-**Responsibilities:**
-- Implement Flashcard page and functionality
-- Integrate OCR (Google ML Kit)
-- Image upload and camera integration
-- Flashcard CRUD operations
-- Flip animation and card navigation
-
-**Deliverables:**
-- Working Flashcard system
-- OCR integration
-- Image processing functionality
-- Camera feature implementation
-
----
-
-### Member 5: Analytics & Quality Assurance
-**Name:** [Student Name]  
-**Student ID:** [ID]  
-**Email:** [Email]  
-**Contact:** [Phone]  
-**GitHub Username:** [username]
-
-**Responsibilities:**
-- Implement Statistics/Analytics page
-- Data visualization with charts
-- App-wide testing and bug fixes
-- Documentation and report writing
-- Video demo preparation
-
-**Deliverables:**
-- Statistics page with visualizations
-- Test reports and bug fixes
-- Project documentation
-- Final report and presentation
-
----
 
 ## 📱 Application Pages (Minimum 5)
 
