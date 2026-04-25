@@ -59,3 +59,71 @@ Services --> Firestore : "Data Storage & Stats"
 Services --> Storage : "Image Persistence"
 
 @enduml
+
+@startuml ERDiagram
+' Entity Relationship Diagram for Smart Study Assistant
+
+entity "User" as user {
+  * id : string <<PK>>
+  --
+  name : string
+  email : string
+  createdAt : timestamp
+}
+
+entity "Note" as note {
+  * id : string <<PK>>
+  --
+  * userId : string <<FK>>
+  title : string
+  content : text
+  category : string
+  hasImage : boolean
+  imageUrl : string
+  createdAt : timestamp
+  updatedAt : timestamp
+}
+
+entity "Flashcard" as flashcard {
+  * id : string <<PK>>
+  --
+  * userId : string <<FK>>
+  noteId : string <<FK>>
+  question : text
+  answer : text
+  category : string
+  difficulty : int
+  timesReviewed : int
+  lastReviewed : timestamp
+  isMarked : boolean
+  createdAt : timestamp
+  updatedAt : timestamp
+}
+
+entity "StudyStats" as stats {
+  * id : string <<PK>> (usually 'overview')
+  --
+  * userId : string <<FK>>
+  totalNotes : int
+  totalSummaries : int
+  totalFlashcards : int
+  totalStudyTime : int (minutes)
+  updatedAt : timestamp
+}
+
+entity "DailyStudyData" as daily {
+  * date : string <<PK>> (YYYY-MM-DD)
+  --
+  * userId : string <<FK>>
+  studyTimeMinutes : int
+  cardsReviewed : int
+  notesCreated : int
+}
+
+user ||--o{ note : "creates"
+user ||--o{ flashcard : "owns"
+user ||--|| stats : "has"
+user ||--o{ daily : "tracks activity"
+note ||--o{ flashcard : "source of"
+
+@enduml
