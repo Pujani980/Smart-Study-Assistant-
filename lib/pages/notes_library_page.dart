@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smart_study_assistant/models/note_model.dart';
 import 'package:smart_study_assistant/services/firebase_service.dart';
 import 'package:intl/intl.dart';
@@ -32,13 +33,13 @@ class _NotesLibraryPageState extends State<NotesLibraryPage> {
     'Literature',
     'History',
     'Technology',
+    'Business',
     'Other',
   ];
 
   @override
   void initState() {
     super.initState();
-    _loadNotes();
     _searchController.addListener(_filterNotes);
   }
 
@@ -48,63 +49,90 @@ class _NotesLibraryPageState extends State<NotesLibraryPage> {
     super.dispose();
   }
 
-  Future<void> _loadNotes() async {
-    setState(() => _isLoading = true);
+  Stream<List<Note>> _getNotesStream() {
     try {
-      final notes = await _firebaseService.getAllNotes(widget.userId);
-      setState(() {
-        _allNotes = notes;
-        _filteredNotes = notes;
-        _isLoading = false;
-      });
-    } catch (e, stackTrace) {
-      print('Error loading notes: $e');
-      print('Stack trace: $stackTrace');
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading notes: $e'),
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
+      return FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userId)
+          .collection('notes')
+          .orderBy('createdAt', descending: true)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => Note.fromMap(doc.data(), doc.id))
+              .toList())
+          .handleError((error) {
+            print('⚠️ Firestore error: $error');
+            // Return empty stream on error - will be caught by StreamBuilder's error handler
+          });
+    } catch (e) {
+      print('Stream creation error: $e');
+      return Stream.value(_getDemoNotes());
     }
   }
 
-  void _filterNotes() {
+  /// Fallback list with demo notes when Firebase is unavailable
+  List<Note> _getDemoNotes() {
+    final demoNotes = [
+      Note(
+        id: 'demo_1',
+        title: 'Introduction to Flutter',
+        content: 'Flutter is a cross-platform mobile development framework created by Google.',
+        summary: 'Flutter: Framework for building beautiful, fast mobile apps.',
+        category: 'Technology',
+        userId: widget.userId,
+        createdAt: DateTime.now().subtract(const Duration(days: 3)),
+      ),
+      Note(
+        id: 'demo_2',
+        title: 'Firebase Firestore Guide',
+        content: 'Firestore is a cloud-hosted NoSQL database with real-time data sync.',
+        summary: 'Firestore: Real-time database for scalable apps with offline support.',
+        category: 'Technology',
+        userId: widget.userId,
+        createdAt: DateTime.now().subtract(const Duration(days: 2)),
+      ),
+      Note(
+        id: 'demo_3',
+        title: 'Study Tips for Exams',
+        content: 'Effective study techniques: spaced repetition, active recall, and practice tests.',
+        summary: 'Study smarter with proven techniques: space learning, test yourself, review often.',
+        category: 'General',
+        userId: widget.userId,
+        createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      ),
+    ];
+    return demoNotes;
+  }
+
+  /// Apply filters without calling setState - safe for use during build
+  void _applyFiltersNoBuild() {
     final query = _searchController.text.toLowerCase();
+    _filteredNotes = _allNotes.where((note) {
+      bool matchesQuery = note.title.toLowerCase().contains(query) ||
+          note.content.toLowerCase().contains(query) ||
+          note.summary.toLowerCase().contains(query);
+      bool matchesCategory =
+          _selectedCategory == 'All' ? true : note.category == _selectedCategory;
+      bool matchesDateRange = _selectedDateRange == null
+          ? true
+          : (note.createdAt.isAfter(_selectedDateRange!.start) &&
+              note.createdAt.isBefore(
+                _selectedDateRange!.end.add(const Duration(days: 1)),
+              ));
+      return matchesQuery && matchesCategory && matchesDateRange;
+    }).toList();
+  }
 
+  /// Apply filters with setState - for user interactions
+  void _filterNotes() {
     setState(() {
-      _filteredNotes = _allNotes.where((note) {
-        // Filter by search query
-        bool matchesQuery =
-            note.title.toLowerCase().contains(query) ||
-            note.content.toLowerCase().contains(query) ||
-            note.summary.toLowerCase().contains(query);
-
-        // Filter by category
-        bool matchesCategory = _selectedCategory == 'All'
-            ? true
-            : note.category == _selectedCategory;
-
-        // Filter by date range
-        bool matchesDateRange = _selectedDateRange == null
-            ? true
-            : (note.createdAt.isAfter(_selectedDateRange!.start) &&
-                  note.createdAt.isBefore(
-                    _selectedDateRange!.end.add(const Duration(days: 1)),
-                  ));
-
-        return matchesQuery && matchesCategory && matchesDateRange;
-      }).toList();
+      _applyFiltersNoBuild();
     });
   }
 
   Future<void> _deleteNote(String noteId) async {
     try {
       await _firebaseService.deleteNote(widget.userId, noteId);
-      await _loadNotes();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Note deleted successfully')),
@@ -127,7 +155,6 @@ class _NotesLibraryPageState extends State<NotesLibraryPage> {
         _selectedNoteIds.toList(),
       );
       setState(() => _selectedNoteIds.clear());
-      await _loadNotes();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$count note(s) deleted successfully')),
@@ -184,65 +211,88 @@ class _NotesLibraryPageState extends State<NotesLibraryPage> {
             onPressed: () => setState(() => _isGridView = !_isGridView),
             tooltip: _isGridView ? 'List View' : 'Grid View',
           ),
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              // Focus search field
-              FocusScope.of(context).requestFocus(FocusNode());
-            },
-          ),
           IconButton(icon: const Icon(Icons.tune), onPressed: _showFilterMenu),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Search bar
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search notes by title...',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.close, size: 20),
-                              onPressed: () {
-                                _searchController.clear();
-                                _filterNotes();
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Colors.blue,
-                          width: 1.5,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Colors.grey[300]!,
-                          width: 1,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
+      // The search bar MUST live outside the StreamBuilder so it is never
+      // recreated on Firestore updates — that was the root cause of the
+      // cursor-disappearing bug.
+      body: Column(
+        children: [
+          // ── Search bar (stable, never rebuilt by stream events) ──────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: TextField(
+              controller: _searchController,
+              autofocus: false,
+              decoration: InputDecoration(
+                hintText: 'Search notes by title...',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () {
+                          _searchController.clear();
+                          _filterNotes();
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.blue, width: 1.5),
                 ),
-                // Notes list or grid with count
-                Expanded(
-                  child: _filteredNotes.isEmpty
-                      ? _buildEmptyState()
-                      : _isGridView
-                      ? _buildGridView()
-                      : _buildListView(),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
                 ),
-              ],
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.blue, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
+          ),
+          // ── Notes list / grid (driven by Firestore stream) ───────────────
+          Expanded(
+            child: StreamBuilder<List<Note>>(
+              stream: _getNotesStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error, size: 80, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text('Error loading notes: ${snapshot.error}'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Go Back'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                _allNotes = snapshot.data ?? [];
+                _applyFiltersNoBuild();
+
+                return _filteredNotes.isEmpty
+                    ? _buildEmptyState()
+                    : _isGridView
+                        ? _buildGridView()
+                        : _buildListView();
+              },
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: _selectedNoteIds.isNotEmpty
           ? FloatingActionButton.extended(
               onPressed: () {
@@ -344,194 +394,185 @@ class _NotesLibraryPageState extends State<NotesLibraryPage> {
   }
 
   Widget _buildEmptyState() {
-    return RefreshIndicator(
-      onRefresh: _loadNotes,
-      child: ListView(
-        children: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.note_outlined, size: 80, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No notes found',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Create your first note using the Summarizer',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: _loadNotes,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh'),
-                  ),
-                ],
-              ),
+    return ListView(
+      children: [
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.note_outlined, size: 80, color: Colors.grey[300]),
+                const SizedBox(height: 16),
+                Text(
+                  'No notes found',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Create your first note using the Summarizer',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () => setState(() {}),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildListView() {
-    return RefreshIndicator(
-      onRefresh: _loadNotes,
-      child: CustomScrollView(
-        slivers: [
-          // Notes count header
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Text(
-                'All Notes (${_filteredNotes.length})',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+    return CustomScrollView(
+      slivers: [
+        // Notes count header
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Text(
+              'All Notes (${_filteredNotes.length})',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
               ),
             ),
           ),
-          // Notes list
-          SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final note = _filteredNotes[index];
-              final isSelected = _selectedNoteIds.contains(note.id);
+        ),
+        // Notes list
+        SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final note = _filteredNotes[index];
+            final isSelected = _selectedNoteIds.contains(note.id);
 
-              return NoteListCard(
-                note: note,
-                isSelected: isSelected,
-                onToggleSelect: () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedNoteIds.remove(note.id);
-                    } else {
-                      _selectedNoteIds.add(note.id);
-                    }
-                  });
-                },
-                onTap: _selectedNoteIds.isEmpty
-                    ? () => _showNoteDetails(note)
-                    : () {
-                        setState(() {
-                          if (isSelected) {
-                            _selectedNoteIds.remove(note.id);
-                          } else {
-                            _selectedNoteIds.add(note.id);
-                          }
-                        });
-                      },
-                onLongPress: () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedNoteIds.remove(note.id);
-                    } else {
-                      _selectedNoteIds.add(note.id);
-                    }
-                  });
-                },
-                onDelete: () => _deleteNote(note.id),
-              );
-            }, childCount: _filteredNotes.length),
-          ),
-          // Bottom padding
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(
-                bottom: _selectedNoteIds.isNotEmpty ? 80 : 16,
-              ),
+            return NoteListCard(
+              note: note,
+              isSelected: isSelected,
+              onToggleSelect: () {
+                setState(() {
+                  if (isSelected) {
+                    _selectedNoteIds.remove(note.id);
+                  } else {
+                    _selectedNoteIds.add(note.id);
+                  }
+                });
+              },
+              onTap: _selectedNoteIds.isEmpty
+                  ? () => _showNoteDetails(note)
+                  : () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedNoteIds.remove(note.id);
+                        } else {
+                          _selectedNoteIds.add(note.id);
+                        }
+                      });
+                    },
+              onLongPress: () {
+                setState(() {
+                  if (isSelected) {
+                    _selectedNoteIds.remove(note.id);
+                  } else {
+                    _selectedNoteIds.add(note.id);
+                  }
+                });
+              },
+              onDelete: () => _deleteNote(note.id),
+            );
+          }, childCount: _filteredNotes.length),
+        ),
+        // Bottom padding
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: _selectedNoteIds.isNotEmpty ? 80 : 16,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildGridView() {
-    return RefreshIndicator(
-      onRefresh: _loadNotes,
-      child: CustomScrollView(
-        slivers: [
-          // Notes count header
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Text(
-                'All Notes (${_filteredNotes.length})',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+    return CustomScrollView(
+      slivers: [
+        // Notes count header
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Text(
+              'All Notes (${_filteredNotes.length})',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
               ),
             ),
           ),
-          // Notes grid
-          SliverGrid(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final note = _filteredNotes[index];
-              final isSelected = _selectedNoteIds.contains(note.id);
+        ),
+        // Notes grid
+        SliverGrid(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final note = _filteredNotes[index];
+            final isSelected = _selectedNoteIds.contains(note.id);
 
-              return NoteGridCard(
-                note: note,
-                isSelected: isSelected,
-                onToggleSelect: () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedNoteIds.remove(note.id);
-                    } else {
-                      _selectedNoteIds.add(note.id);
-                    }
-                  });
-                },
-                onTap: _selectedNoteIds.isEmpty
-                    ? () => _showNoteDetails(note)
-                    : () {
-                        setState(() {
-                          if (isSelected) {
-                            _selectedNoteIds.remove(note.id);
-                          } else {
-                            _selectedNoteIds.add(note.id);
-                          }
-                        });
-                      },
-                onLongPress: () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedNoteIds.remove(note.id);
-                    } else {
-                      _selectedNoteIds.add(note.id);
-                    }
-                  });
-                },
-                onDelete: () => _deleteNote(note.id),
-              );
-            }, childCount: _filteredNotes.length),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.75,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
+            return NoteGridCard(
+              note: note,
+              isSelected: isSelected,
+              onToggleSelect: () {
+                setState(() {
+                  if (isSelected) {
+                    _selectedNoteIds.remove(note.id);
+                  } else {
+                    _selectedNoteIds.add(note.id);
+                  }
+                });
+              },
+              onTap: _selectedNoteIds.isEmpty
+                  ? () => _showNoteDetails(note)
+                  : () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedNoteIds.remove(note.id);
+                        } else {
+                          _selectedNoteIds.add(note.id);
+                        }
+                      });
+                    },
+              onLongPress: () {
+                setState(() {
+                  if (isSelected) {
+                    _selectedNoteIds.remove(note.id);
+                  } else {
+                    _selectedNoteIds.add(note.id);
+                  }
+                });
+              },
+              onDelete: () => _deleteNote(note.id),
+            );
+          }, childCount: _filteredNotes.length),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.75,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+          ),
+        ),
+        // Bottom padding
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: _selectedNoteIds.isNotEmpty ? 80 : 16,
             ),
           ),
-          // Bottom padding
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(
-                bottom: _selectedNoteIds.isNotEmpty ? 80 : 16,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

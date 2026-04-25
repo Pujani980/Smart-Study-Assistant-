@@ -23,54 +23,59 @@ class StatisticsService {
   /// Aggregates: notes count, flashcards count, study time, summaries
   Future<StudyStatistics> getStudyStatistics(String userId) async {
     try {
-      // Get total notes
-      final notesQuery = await _firestore
+      // Get notes (needed for count + study time estimate)
+      final notesSnapshot = await _firestore
           .collection('users')
           .doc(userId)
           .collection('notes')
-          .count()
           .get();
-      final totalNotes = notesQuery.count ?? 0;
+      final totalNotes = notesSnapshot.docs.length;
 
-      // Get total flashcards
-      final flashcardsQuery = await _firestore
+      // Get flashcards (needed for count + study time estimate)
+      final flashcardsSnapshot = await _firestore
           .collection('users')
           .doc(userId)
           .collection('flashcards')
-          .count()
           .get();
-      final totalFlashcards = flashcardsQuery.count ?? 0;
+      final totalFlashcards = flashcardsSnapshot.docs.length;
 
-      // Get study stats document
+      // Calculate study time from real data:
+      //   • Each flashcard review  = 1 minute
+      //   • Each note created      = 5 minutes
+      // This mirrors the formula used by the daily chart so the numbers
+      // are consistent, and avoids reading a Firestore field that is
+      // never actually written anywhere.
+      int totalCardReviews = 0;
+      for (final doc in flashcardsSnapshot.docs) {
+        totalCardReviews += (doc.data()['timesReviewed'] as int? ?? 0);
+      }
+      final totalStudyTime = totalCardReviews + (totalNotes * 5);
+
+      // Get summaries count from stats doc (this one IS written by firebase_service)
       final statsDoc = await _firestore
           .collection('users')
           .doc(userId)
           .collection('stats')
           .doc('overview')
           .get();
-
       final totalSummaries = statsDoc.exists
           ? (statsDoc.data()?['totalSummaries'] as int?) ?? 0
           : 0;
-      final totalStudyTime = statsDoc.exists
-          ? (statsDoc.data()?['totalStudyTime'] as int?) ?? 0
-          : 0;
 
-      // Get last study date from notes
+      // Get last study date from most recently updated note
       DateTime lastStudyDate = DateTime.now();
       try {
         final lastNoteQuery = await _firestore
             .collection('users')
             .doc(userId)
             .collection('notes')
-            .orderBy('updatedAt', descending: true)
+            .orderBy('createdAt', descending: true)
             .limit(1)
             .get();
-
         if (lastNoteQuery.docs.isNotEmpty) {
-          final updatedAt = lastNoteQuery.docs.first.data()['updatedAt'];
-          if (updatedAt != null) {
-            lastStudyDate = (updatedAt as Timestamp).toDate();
+          final createdAt = lastNoteQuery.docs.first.data()['createdAt'];
+          if (createdAt != null) {
+            lastStudyDate = (createdAt as Timestamp).toDate();
           }
         }
       } catch (e) {

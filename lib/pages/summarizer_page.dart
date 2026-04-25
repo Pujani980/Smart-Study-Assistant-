@@ -107,11 +107,6 @@ class _SummarizerPageState extends State<SummarizerPage> {
     final title = _titleController.text.trim();
     final textToSave = _textController.text.trim();
 
-    if (title.isEmpty) {
-      _showErrorSnackBar('Please enter a title for this note');
-      return;
-    }
-
     if (textToSave.isEmpty) {
       _showErrorSnackBar('No text to save');
       return;
@@ -119,13 +114,16 @@ class _SummarizerPageState extends State<SummarizerPage> {
 
     try {
       const uuid = Uuid();
+      final summaryText = _summary ?? '';
       final note = Note(
         id: uuid.v4(),
-        title: title,
+        title: title.isNotEmpty
+            ? title
+            : _buildAutoTitle(textToSave, summaryText),
         content: textToSave,
-        summary: _summary ?? '',
+        summary: summaryText,
         createdAt: DateTime.now(),
-        category: 'General',
+        category: _inferCategory(textToSave, summaryText),
         userId: widget.userId,
       );
 
@@ -139,6 +137,96 @@ class _SummarizerPageState extends State<SummarizerPage> {
     } catch (e) {
       _showErrorSnackBar('Error saving summary: $e');
     }
+  }
+
+  String _buildAutoTitle(String content, String summary) {
+    // Prefer the summary for title extraction; fall back to raw content.
+    final source = summary.trim().isNotEmpty ? summary.trim() : content.trim();
+    if (source.isEmpty) return 'Untitled Note';
+
+    // Try to use the first complete sentence (up to 80 chars) as the title.
+    final sentenceMatch = RegExp(r'^(.+?[.!?])').firstMatch(source);
+    if (sentenceMatch != null) {
+      final sentence = sentenceMatch.group(1)!.trim();
+      if (sentence.length <= 80) return sentence;
+      // Sentence is too long – fall through to word-based truncation.
+    }
+
+    // Fallback: first 8 words.
+    final words = source
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    final preview = words.take(8).join(' ');
+    return words.length > 8 ? '$preview…' : preview;
+  }
+
+  String _inferCategory(String content, String summary) {
+    final text = '$content $summary'.toLowerCase();
+
+    // Broader keyword set so most notes get a meaningful category
+    // instead of falling back to 'General'.
+    final categoryKeywords = <String, List<String>>{
+      'Mathematics': [
+        'algebra', 'calculus', 'equation', 'geometry', 'integral',
+        'matrix', 'probability', 'statistics', 'arithmetic', 'theorem',
+        'derivative', 'function', 'graph', 'polynomial', 'trigonometry',
+        'number', 'formula', 'proof', 'vector', 'logarithm',
+      ],
+      'Technology': [
+        'code', 'coding', 'programming', 'algorithm', 'software',
+        'flutter', 'dart', 'java', 'python', 'javascript', 'typescript',
+        'database', 'api', 'framework', 'library', 'function', 'class',
+        'object', 'array', 'loop', 'variable', 'compiler', 'runtime',
+        'machine learning', 'neural', 'artificial intelligence', 'ai',
+        'data structure', 'recursion', 'git', 'server', 'backend', 'frontend',
+      ],
+      'Science': [
+        'physics', 'chemistry', 'biology', 'molecule', 'atom', 'energy',
+        'cell', 'experiment', 'hypothesis', 'photosynthesis', 'evolution',
+        'gravity', 'force', 'reaction', 'compound', 'element', 'dna',
+        'gene', 'organism', 'electron', 'neutron', 'proton', 'radiation',
+        'ecosystem', 'climate', 'quantum', 'relativity', 'thermodynamics',
+        'species', 'enzyme', 'hormone', 'membrane', 'nucleus',
+      ],
+      'Business': [
+        'marketing', 'finance', 'accounting', 'economics', 'management',
+        'strategy', 'revenue', 'profit', 'investment', 'market', 'brand',
+        'supply', 'demand', 'entrepreneur', 'startup', 'business', 'trade',
+        'stock', 'budget', 'asset', 'liability', 'balance sheet', 'tax',
+        'gdp', 'inflation', 'cost', 'pricing', 'sales', 'customer',
+      ],
+      'History': [
+        'history', 'empire', 'war', 'century', 'ancient', 'civilization',
+        'revolution', 'battle', 'dynasty', 'king', 'queen', 'medieval',
+        'colonial', 'independence', 'treaty', 'democracy', 'republic',
+        'world war', 'industrial', 'renaissance', 'reformation', 'ottoman',
+        'roman', 'greek', 'egypt', 'africa', 'asia', 'europe', 'america',
+      ],
+      'Literature': [
+        'grammar', 'literature', 'essay', 'poem', 'poetry', 'vocabulary',
+        'language', 'writing', 'novel', 'author', 'narrative', 'syntax',
+        'metaphor', 'character', 'theme', 'plot', 'prose', 'fiction',
+        'linguistics', 'verb', 'noun', 'adjective', 'sentence', 'paragraph',
+        'shakespeare', 'reading', 'comprehension', 'speech',
+      ],
+    };
+
+    String bestCategory = 'General';
+    var bestScore = 0;
+
+    categoryKeywords.forEach((category, keywords) {
+      var score = 0;
+      for (final keyword in keywords) {
+        if (text.contains(keyword)) score++;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestCategory = category;
+      }
+    });
+
+    return bestCategory;
   }
 
   void _resetForm() {
@@ -213,7 +301,7 @@ class _SummarizerPageState extends State<SummarizerPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Note Title',
+          'Note Title (Optional)',
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),

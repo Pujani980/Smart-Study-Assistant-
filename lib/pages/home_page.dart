@@ -88,10 +88,6 @@ class _HomePageState extends State<HomePage> {
                         _buildStatsCards(stats),
                         const SizedBox(height: 24),
 
-                        // Quick Action Buttons
-                        _buildQuickActionButtons(context),
-                        const SizedBox(height: 24),
-
                         // Recent Activity
                         _buildRecentActivitySection(recentNotes),
                       ],
@@ -215,86 +211,6 @@ class _HomePageState extends State<HomePage> {
             Text(
               title,
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActionButtons(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.upload_file_outlined,
-                label: 'Upload Note',
-                onTap: () {
-                  widget.onNavigate?.call(1);
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.auto_awesome_outlined,
-                label: 'Summarize',
-                onTap: () {
-                  widget.onNavigate?.call(1);
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.collections_outlined,
-                label: 'Flashcards',
-                onTap: () {
-                  widget.onNavigate?.call(3);
-                },
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.blue.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.blue.withOpacity(0.3), width: 2),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.blue, size: 28),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.blue,
-              ),
               textAlign: TextAlign.center,
             ),
           ],
