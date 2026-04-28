@@ -6,6 +6,10 @@
 # showing the exact files one team member added during the
 # dev-branch phase (commit 864ad8d), attributed to them.
 #
+# Each branch is an orphan (no inherited history) so that
+# GitHub shows only that developer's single commit — giving
+# a clean, correct contribution history per person.
+#
 # Run this script from the root of your local clone:
 #   bash setup_contribution_branches.sh
 #
@@ -14,15 +18,17 @@
 
 set -euo pipefail
 
-BASE_COMMIT="025b284"          # last clean commit before squash merge
 SQUASH_COMMIT="864ad8d"        # the squash that merged all dev branches
 
 echo "==> Ensuring full history is available..."
 git fetch --unshallow origin 2>/dev/null || true
 git fetch origin
 
+# Remember which branch we started on so we can return to it
+ORIGINAL_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || echo 'main')"
+
 # ------------------------------------------------------------------
-# Helper: create one contribution branch
+# Helper: create one contribution branch as an orphan
 # Usage: make_branch <branch_name> <author_name> <author_email> \
 #                    <commit_message> <file1> [<file2> ...]
 # ------------------------------------------------------------------
@@ -40,7 +46,11 @@ make_branch() {
   # Delete branch locally if it already exists
   git branch -D "$branch" 2>/dev/null || true
 
-  git checkout -b "$branch" "$BASE_COMMIT"
+  # Create an orphan branch — no parent commits, so history is clean
+  git checkout --orphan "$branch"
+
+  # Remove everything from the index (orphan inherits the working tree)
+  git rm -rf --cached . 2>/dev/null || true
 
   # Create parent directories and restore each file from the squash commit
   for f in "${files[@]}"; do
@@ -49,7 +59,7 @@ make_branch() {
     git add "$f"
   done
 
-  # Commit with the correct author
+  # Commit with the correct author (noreply email links to the GitHub profile)
   GIT_AUTHOR_NAME="$author_name" \
   GIT_AUTHOR_EMAIL="$author_email" \
   GIT_COMMITTER_NAME="$author_name" \
@@ -58,7 +68,7 @@ make_branch() {
       commit -m "$commit_msg"
 
   echo "    Pushing $branch to origin..."
-  git push --force-with-lease origin "$branch"
+  git push --force origin "$branch"
   echo "    Done: https://github.com/Pujani980/Smart-Study-Assistant-/tree/$branch"
 }
 
@@ -68,7 +78,7 @@ make_branch() {
 make_branch \
   "contribution/gayanthi" \
   "Madhubhashinii" \
-  "Madhubhashinii@users.noreply.github.com" \
+  "180200862+Madhubhashinii@users.noreply.github.com" \
   "feat: add notes library page
 
 Contribution by Madhubhashinii (Gayanthi) — dev-gayanthi branch
@@ -82,7 +92,7 @@ Contribution by Madhubhashinii (Gayanthi) — dev-gayanthi branch
 make_branch \
   "contribution/achini" \
   "IMALSHAA" \
-  "IMALSHAA@users.noreply.github.com" \
+  "172722358+IMALSHAA@users.noreply.github.com" \
   "feat: add statistics module
 
 Contribution by IMALSHAA (Achini) — dev_achini branch
@@ -99,7 +109,7 @@ Contribution by IMALSHAA (Achini) — dev_achini branch
 make_branch \
   "contribution/dilmi" \
   "Dshehara" \
-  "dilmirathnayake431@gmail.com" \
+  "172895322+Dshehara@users.noreply.github.com" \
   "feat: add AI summarisation service and summarizer page
 
 Contribution by Dshehara (Dilmi) — dev_dilmi branch
@@ -127,8 +137,8 @@ Contribution by Pujani980 — dev_pujani branch
   "lib/services/firebase_service.dart" \
   "pubspec.yaml"
 
-# Go back to main
-git checkout main
+# Go back to the original branch
+git checkout "$ORIGINAL_BRANCH"
 
 echo ""
 echo "============================================================"
