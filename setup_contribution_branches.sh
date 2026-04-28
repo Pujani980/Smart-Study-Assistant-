@@ -2,9 +2,9 @@
 # ============================================================
 # setup_contribution_branches.sh
 #
-# Creates four "contribution/" branches on GitHub, each
+# Creates five "contribution/" branches on GitHub, each
 # showing the exact files one team member added during the
-# dev-branch phase (commit 864ad8d), attributed to them.
+# dev-branch phase, attributed to them.
 #
 # Each branch is an orphan (no inherited history) so that
 # GitHub shows only that developer's single commit — giving
