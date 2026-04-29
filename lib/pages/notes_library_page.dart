@@ -219,7 +219,7 @@ class _NotesLibraryPageState extends State<NotesLibraryPage> {
       // cursor-disappearing bug.
       body: Column(
         children: [
-          // ── Search bar (stable, never rebuilt by stream events) ──────────
+          // Search bar (stable, never rebuilt by stream events)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: TextField(
